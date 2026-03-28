@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAMPI CASH | O Futuro da Sorte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-green: #39FF14;
+            --dark-bg: #0a0a0a;
+            --card-bg: #151515;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--dark-bg);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+            border: 1px solid var(--neon-green);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.8);
+            color: var(--neon-green);
+        }
+
+        .btn-neon {
+            background: transparent;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .btn-neon:hover {
+            background: var(--neon-green);
+            color: black;
+            box-shadow: 0 0 25px var(--neon-green);
+            transform: scale(1.05);
+        }
+
+        .dice {
+            width: 100px;
+            height: 100px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s ease-out;
+            margin: 0 auto;
+        }
+
+        .dice-face {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: black;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+        }
+
+        /* Simulação simples do dado com faces */
+        .f1 { transform: translateZ(50px); }
+        .f2 { transform: rotateY(180deg) translateZ(50px); }
+        .f3 { transform: rotateY(90deg) translateZ(50px); }
+        .f4 { transform: rotateY(-90deg) translateZ(50px); }
+        .f5 { transform: rotateX(90deg) translateZ(50px); }
+        .f6 { transform: rotateX(-90deg) translateZ(50px); }
+
+        .spinning {
+            animation: spin 0.5s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotateX(0) rotateY(0); }
+            to { transform: rotateX(360deg) rotateY(360deg); }
+        }
+
+        .hidden-section { display: none; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header / Navbar -->
+    <nav class="p-6 flex justify-between items-center max-w-4xl mx-auto w-full">
+        <h1 class="text-2xl font-800 neon-text">ZAMPI <span class="text-white">CASH</span></h1>
+        <div id="user-nav" class="hidden">
+            <button onclick="signOut()" class="text-xs text-gray-400 hover:text-white transition">SAIR</button>
+        </div>
+    </nav>
+
+    <main class="flex-grow flex flex-col items-center justify-center p-4">
+        
+        <!-- SEÇÃO: LOGIN / CADASTRO -->
+        <section id="auth-section" class="w-full max-w-md bg-[#111] p-8 rounded-2xl neon-glow">
+            <div class="flex mb-6 space-x-4 border-b border-gray-800 pb-2">
+                <button id="tab-login" onclick="switchTab('login')" class="text-neon-green border-b-2 border-neon-green pb-2 px-4 transition-all">Login</button>
+                <button id="tab-signup" onclick="switchTab('signup')" class="text-gray-500 pb-2 px-4 transition-all">Cadastro</button>
+            </div>
+
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 mb-1">E-mail</label>
+                    <input type="email" id="email" class="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-neon-green text-white" placeholder="seu@email.com" required>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase text-gray-400 mb-1">Senha</label>
+                    <input type="password" id="password" class="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-neon-green text-white" placeholder="••••••••" required>
+                </div>
+                <button type="submit" id="auth-btn" class="w-full py-3 rounded-lg btn-neon mt-4">Entrar</button>
+            </form>
+            <p id="auth-msg" class="mt-4 text-center text-sm text-red-500 font-semibold"></p>
+        </section>
+
+        <!-- SEÇÃO: DASHBOARD -->
+        <section id="dashboard-section" class="hidden-section w-full max-w-md text-center space-y-8">
+            <div class="bg-[#111] p-6 rounded-2xl neon-glow">
+                <p class="text-gray-400 uppercase text-xs tracking-widest mb-1">Seu Saldo</p>
+                <h2 class="text-4xl font-bold neon-text" id="balance-display">R$ 0,00</h2>
+                <button onclick="redirectToStripe()" class="mt-4 bg-white text-black px-6 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition">
+                    💳 DEPOSITAR SALDO
+                </button>
+            </div>
+
+            <div class="py-12 relative">
+                <div id="dice-container" class="dice">
+                    <div class="dice-face f1">1</div>
+                    <div class="dice-face f2">2</div>
+                    <div class="dice-face f3">3</div>
+                    <div class="dice-face f4">4</div>
+                    <div class="dice-face f5">5</div>
+                    <div class="dice-face f6">6</div>
+                </div>
+                
+                <div id="dice-result" class="mt-8 text-2xl font-bold text-white opacity-0 transition-opacity">
+                    Caiu no <span class="neon-text" id="result-val">6</span>!
+                </div>
+            </div>
+
+            <button onclick="rollDice()" id="roll-btn" class="w-full py-5 rounded-2xl btn-neon text-xl shadow-lg">
+                🎲 GIRAR DADO <span class="text-xs opacity-70 ml-2">(R$ 0,10)</span>
+            </button>
+            
+            <p class="text-xs text-gray-500">Cada giro custa R$ 0,10 e é puramente recreativo.</p>
+        </section>
+
+    </main>
+
+    <footer class="p-6 text-center text-gray-600 text-xs">
+        &copy; 2024 ZAMPI CASH - Jogar com responsabilidade.
+    </footer>
+
+    <!-- Notificação Flutuante -->
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-2xl transition-all opacity-0 translate-y-10 pointer-events-none">
+        Saldo insuficiente!
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO SUPABASE (Substitua pelos seus dados se necessário)
+        const SUPABASE_URL = ""; // Coloque aqui seu URL do Supabase
+        const SUPABASE_KEY = ""; // Coloque aqui sua Anon Key do Supabase
+        
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let userSession = null;
+        let currentBalance = 0;
+        let isAuthLogin = true;
+
+        // ELEMENTOS UI
+        const authSection = document.getElementById('auth-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const userNav = document.getElementById('user-nav');
+        const balanceDisplay = document.getElementById('balance-display');
+        const authForm = document.getElementById('auth-form');
+        const authBtn = document.getElementById('auth-btn');
+        const authMsg = document.getElementById('auth-msg');
+        const diceContainer = document.getElementById('dice-container');
+        const diceResult = document.getElementById('dice-result');
+        const resultVal = document.getElementById('result-val');
+        const toast = document.getElementById('toast');
+
+        // --- AUTH LOGIC ---
+
+        function switchTab(tab) {
+            isAuthLogin = tab === 'login';
+            document.getElementById('tab-login').className = isAuthLogin ? 'text-neon-green border-b-2 border-neon-green pb-2 px-4 transition-all' : 'text-gray-500 pb-2 px-4 transition-all';
+            document.getElementById('tab-signup').className = !isAuthLogin ? 'text-neon-green border-b-2 border-neon-green pb-2 px-4 transition-all' : 'text-gray-500 pb-2 px-4 transition-all';
+            authBtn.innerText = isAuthLogin ? 'Entrar' : 'Cadastrar';
+        }
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authMsg.innerText = "Carregando...";
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                if (isAuthLogin) {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    checkUser();
+                } else {
+                    const { data, error } = await supabase.auth.signUp({ 
+                        email, 
+                        password,
+                        options: { data: { saldo: 0 } }
+                    });
+                    if (error) throw error;
+                    authMsg.innerText = "Cadastro realizado! Verifique seu e-mail ou faça login.";
+                }
+            } catch (err) {
+                authMsg.innerText = err.message;
+            }
+        });
+
+        async function checkUser() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                userSession = user;
+                showDashboard();
+                fetchBalance();
+            } else {
+                showAuth();
+            }
+        }
+
+        async function signOut() {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+
+        function showDashboard() {
+            authSection.classList.add('hidden-section');
+            dashboardSection.classList.remove('hidden-section');
+            userNav.classList.remove('hidden');
+        }
+
+        function showAuth() {
+            authSection.classList.remove('hidden-section');
+            dashboardSection.classList.add('hidden-section');
+            userNav.classList.add('hidden');
+        }
+
+        // --- SALDO E DADOS ---
+
+        async function fetchBalance() {
+            // Tenta pegar o perfil (assumindo tabela 'profiles' sincronizada com auth)
+            // Caso não exista, cria ou retorna 0
+            let { data, error } = await supabase
+                .from('profiles')
+                .select('saldo')
+                .eq('id', userSession.id)
+                .single();
+            
+            if (error) {
+                // Se der erro, pode ser que o profile não exista, então criamos
+                console.log("Criando novo perfil de usuário...");
+                const { data: newData } = await supabase
+                    .from('profiles')
+                    .insert({ id: userSession.id, email: userSession.email, saldo: 5.0 }) // Bonus inicial 5 reais para teste
+                    .select()
+                    .single();
+                currentBalance = newData?.saldo || 0;
+            } else {
+                currentBalance = data.saldo;
+            }
+            updateBalanceUI();
+        }
+
+        function updateBalanceUI() {
+            balanceDisplay.innerText = `R$ ${currentBalance.toFixed(2).replace('.', ',')}`;
+        }
+
+        async function updateBalanceInDB(newBalance) {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ saldo: newBalance })
+                .eq('id', userSession.id);
+            
+            if (error) console.error("Erro ao atualizar banco:", error);
+        }
+
+        // --- JOGO DO DADO ---
+
+        function rollDice() {
+            if (currentBalance < 0.10) {
+                showToast("Saldo insuficiente!");
+                return;
+            }
+
+            // Bloquear botão durante animação
+            const btn = document.getElementById('roll-btn');
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+
+            // Subtrair saldo
+            currentBalance -= 0.10;
+            updateBalanceUI();
+            updateBalanceInDB(currentBalance);
+
+            // Animação
+            diceContainer.classList.add('spinning');
+            diceResult.style.opacity = "0";
+
+            setTimeout(() => {
+                diceContainer.classList.remove('spinning');
+                const result = Math.floor(Math.random() * 6) + 1;
+                
+                // Aplicar rotação final baseada no resultado
+                const rotations = {
+                    1: 'rotateX(0deg) rotateY(0deg)',
+                    2: 'rotateY(180deg)',
+                    3: 'rotateY(-90deg)',
+                    4: 'rotateY(90deg)',
+                    5: 'rotateX(-90deg)',
+                    6: 'rotateX(90deg)'
+                };
+                diceContainer.style.transform = rotations[result];
+                
+                resultVal.innerText = result;
+                diceResult.style.opacity = "1";
+                btn.disabled = false;
+                btn.style.opacity = "1";
+            }, 1000);
+        }
+
+        function showToast(msg) {
+            toast.innerText = msg;
+            toast.style.opacity = "1";
+            toast.style.transform = "translate(-50%, 0)";
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translate(-50%, 40px)";
+            }, 3000);
+        }
+
+        function redirectToStripe() {
+            // Aqui você colocaria o link do seu Checkout do Stripe configurado no Make/Zapier
+            window.open("https://buy.stripe.com/test_seu_link_aqui", "_blank");
+            showToast("Redirecionando para depósito seguro...");
+        }
+
+        // Inicializar
+        checkUser();
+
+    </script>
+</body>
+</html>
