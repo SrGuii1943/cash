@@ -73,7 +73,6 @@
             box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
         }
 
-        /* Simulação simples do dado com faces */
         .f1 { transform: translateZ(50px); }
         .f2 { transform: rotateY(180deg) translateZ(50px); }
         .f3 { transform: rotateY(90deg) translateZ(50px); }
@@ -170,15 +169,26 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO SUPABASE (Substitua pelos seus dados se necessário)
-        const SUPABASE_URL = ""; // Coloque aqui seu URL do Supabase
-        const SUPABASE_KEY = ""; // Coloque aqui sua Anon Key do Supabase
-        
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+        // CONFIGURAÇÃO INICIAL DE ESTADO
         let userSession = null;
         let currentBalance = 0;
         let isAuthLogin = true;
+        let sb = null;
+
+        // CONFIGURAÇÃO SUPABASE
+        const SUPABASE_URL = ""; // ADICIONE SUA URL AQUI
+        const SUPABASE_KEY = ""; // ADICIONE SUA KEY AQUI
+
+        // INICIALIZAÇÃO SEGURA DO CLIENTE
+        function initSupabase() {
+            if (!SUPABASE_URL || !SUPABASE_KEY) {
+                console.warn("Supabase URL ou Key não fornecidos. O sistema de login não funcionará.");
+                return null;
+            }
+            return supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+
+        sb = initSupabase();
 
         // ELEMENTOS UI
         const authSection = document.getElementById('auth-section');
@@ -195,26 +205,30 @@
 
         // --- AUTH LOGIC ---
 
-        function switchTab(tab) {
+        window.switchTab = function(tab) {
             isAuthLogin = tab === 'login';
             document.getElementById('tab-login').className = isAuthLogin ? 'text-neon-green border-b-2 border-neon-green pb-2 px-4 transition-all' : 'text-gray-500 pb-2 px-4 transition-all';
             document.getElementById('tab-signup').className = !isAuthLogin ? 'text-neon-green border-b-2 border-neon-green pb-2 px-4 transition-all' : 'text-gray-500 pb-2 px-4 transition-all';
             authBtn.innerText = isAuthLogin ? 'Entrar' : 'Cadastrar';
-        }
+        };
 
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!sb) {
+                authMsg.innerText = "Configuração do Supabase ausente.";
+                return;
+            }
             authMsg.innerText = "Carregando...";
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
             try {
                 if (isAuthLogin) {
-                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    const { data, error } = await sb.auth.signInWithPassword({ email, password });
                     if (error) throw error;
                     checkUser();
                 } else {
-                    const { data, error } = await supabase.auth.signUp({ 
+                    const { data, error } = await sb.auth.signUp({ 
                         email, 
                         password,
                         options: { data: { saldo: 0 } }
@@ -228,7 +242,8 @@
         });
 
         async function checkUser() {
-            const { data: { user } } = await supabase.auth.getUser();
+            if (!sb) return;
+            const { data: { user } } = await sb.auth.getUser();
             if (user) {
                 userSession = user;
                 showDashboard();
@@ -238,10 +253,10 @@
             }
         }
 
-        async function signOut() {
-            await supabase.auth.signOut();
+        window.signOut = async function() {
+            if (sb) await sb.auth.signOut();
             window.location.reload();
-        }
+        };
 
         function showDashboard() {
             authSection.classList.add('hidden-section');
@@ -258,20 +273,18 @@
         // --- SALDO E DADOS ---
 
         async function fetchBalance() {
-            // Tenta pegar o perfil (assumindo tabela 'profiles' sincronizada com auth)
-            // Caso não exista, cria ou retorna 0
-            let { data, error } = await supabase
+            if (!sb) return;
+            let { data, error } = await sb
                 .from('profiles')
                 .select('saldo')
                 .eq('id', userSession.id)
                 .single();
             
             if (error) {
-                // Se der erro, pode ser que o profile não exista, então criamos
                 console.log("Criando novo perfil de usuário...");
-                const { data: newData } = await supabase
+                const { data: newData } = await sb
                     .from('profiles')
-                    .insert({ id: userSession.id, email: userSession.email, saldo: 5.0 }) // Bonus inicial 5 reais para teste
+                    .insert({ id: userSession.id, email: userSession.email, saldo: 5.0 })
                     .select()
                     .single();
                 currentBalance = newData?.saldo || 0;
@@ -286,7 +299,8 @@
         }
 
         async function updateBalanceInDB(newBalance) {
-            const { error } = await supabase
+            if (!sb) return;
+            const { error } = await sb
                 .from('profiles')
                 .update({ saldo: newBalance })
                 .eq('id', userSession.id);
@@ -296,23 +310,20 @@
 
         // --- JOGO DO DADO ---
 
-        function rollDice() {
+        window.rollDice = function() {
             if (currentBalance < 0.10) {
                 showToast("Saldo insuficiente!");
                 return;
             }
 
-            // Bloquear botão durante animação
             const btn = document.getElementById('roll-btn');
             btn.disabled = true;
             btn.style.opacity = "0.5";
 
-            // Subtrair saldo
             currentBalance -= 0.10;
             updateBalanceUI();
             updateBalanceInDB(currentBalance);
 
-            // Animação
             diceContainer.classList.add('spinning');
             diceResult.style.opacity = "0";
 
@@ -320,7 +331,6 @@
                 diceContainer.classList.remove('spinning');
                 const result = Math.floor(Math.random() * 6) + 1;
                 
-                // Aplicar rotação final baseada no resultado
                 const rotations = {
                     1: 'rotateX(0deg) rotateY(0deg)',
                     2: 'rotateY(180deg)',
@@ -336,7 +346,7 @@
                 btn.disabled = false;
                 btn.style.opacity = "1";
             }, 1000);
-        }
+        };
 
         function showToast(msg) {
             toast.innerText = msg;
@@ -348,13 +358,12 @@
             }, 3000);
         }
 
-        function redirectToStripe() {
-            // Aqui você colocaria o link do seu Checkout do Stripe configurado no Make/Zapier
+        window.redirectToStripe = function() {
             window.open("https://buy.stripe.com/test_seu_link_aqui", "_blank");
             showToast("Redirecionando para depósito seguro...");
-        }
+        };
 
-        // Inicializar
+        // Inicializar após definição de todas as funções
         checkUser();
 
     </script>
